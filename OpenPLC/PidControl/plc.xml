@@ -1,0 +1,994 @@
+<?xml version='1.0' encoding='utf-8'?>
+<project xmlns:ns1="http://www.plcopen.org/xml/tc6_0201" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.plcopen.org/xml/tc6_0201">
+  <fileHeader companyName="Unknown" productName="Unnamed" productVersion="1" creationDateTime="2022-08-16T15:49:17"/>
+  <contentHeader name="Unnamed" modificationDateTime="2023-12-06T10:20:11">
+    <coordinateInfo>
+      <fbd>
+        <scaling x="10" y="10"/>
+      </fbd>
+      <ld>
+        <scaling x="10" y="10"/>
+      </ld>
+      <sfc>
+        <scaling x="10" y="10"/>
+      </sfc>
+    </coordinateInfo>
+  </contentHeader>
+  <types>
+    <dataTypes/>
+    <pous>
+      <pou name="FT_PIWL" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="IN">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="KP">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0"/>
+              </initialValue>
+            </variable>
+            <variable name="KI">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0"/>
+              </initialValue>
+            </variable>
+            <variable name="LIM_L">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="-1.0E38"/>
+              </initialValue>
+            </variable>
+            <variable name="LIM_H">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0E38"/>
+              </initialValue>
+            </variable>
+            <variable name="RST">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="Y">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="LIM">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="init">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+            <variable name="tx">
+              <type>
+                <UDINT/>
+              </type>
+            </variable>
+            <variable name="tc">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="t_last">
+              <type>
+                <UDINT/>
+              </type>
+            </variable>
+            <variable name="in_last">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="i">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="p">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[IF NOT init OR RST THEN
+	init := TRUE;
+	in_last := in;
+		t_last := T_PLC_US(en:=true);
+	i := 0.0;
+	tc := 0.0;
+ELSE
+	(* read last cycle time in Microseconds *)
+		tx := T_PLC_US(en:=true);
+	tc := UDINT_TO_REAL(tx - t_last);
+	t_last := tx;
+
+	(* calculate proportional part *)
+	p := KP * IN;
+
+	(* run integrator *)
+	i := (IN + in_last) * 5.0E-7 * KI * tc + i;
+	in_last := IN;
+
+	(* calculate output Y *)
+	Y := p + i;
+
+	(* check output for limits *)
+	IF Y >= LIM_H THEN
+		Y := LIM_H;
+		IF ki <> 0.0 THEN
+			i := LIM_H - p;
+		ELSE
+			i := 0.0;
+		END_IF;
+		LIM := TRUE;
+	ELSIF Y <= LIM_L THEN
+		Y := LIM_L;
+		IF ki <> 0.0 THEN
+			i := LIM_L - p;
+		ELSE
+			i := 0.0;
+		END_IF;
+		LIM := TRUE;
+	ELSE
+		LIM := FALSE;
+	END_IF;
+END_IF;
+
+(* From OSCAT Library, www.oscat.de *)
+(* T_PLC_US required *)]]></xhtml:p>
+          </ST>
+        </body>
+        <documentation>
+          <xhtml:p><![CDATA[FT_PIWL is a PI controller]]></xhtml:p>
+        </documentation>
+      </pou>
+      <pou name="DEAD_ZONE" pouType="function">
+        <interface>
+          <returnType>
+            <REAL/>
+          </returnType>
+          <inputVars>
+            <variable name="X">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="L">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+          </inputVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[IF ABS(x) > L THEN
+	dead_zone := X;
+ELSE
+	DEAD_ZONE := 0.0;
+END_IF;
+
+(* From OSCAT Library, www.oscat.de *)]]></xhtml:p>
+          </ST>
+        </body>
+        <documentation>
+          <xhtml:p><![CDATA[dead_zone2 is a linear transfer function which follows a linear function except for x is close to 0.]]></xhtml:p>
+        </documentation>
+      </pou>
+      <pou name="FT_DERIV" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="IN">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="K">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0"/>
+              </initialValue>
+            </variable>
+            <variable name="RUN">
+              <type>
+                <BOOL/>
+              </type>
+              <initialValue>
+                <simpleValue value="TRUE"/>
+              </initialValue>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="OUT">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="old">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="tx">
+              <type>
+                <UDINT/>
+              </type>
+            </variable>
+            <variable name="last">
+              <type>
+                <UDINT/>
+              </type>
+            </variable>
+            <variable name="init">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+            <variable name="tc">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[tx:= T_PLC_US(en:=true);
+tc := UDINT_TO_REAL(tx - last);
+
+(* init on firsat startup *)
+IF NOT init THEN
+	init := TRUE;
+	old := in;
+ELSIF run AND tc > 0.0 THEN
+	out := (in - old) / tc * 1000000.0 * K;
+	old := in;
+ELSE
+	out := 0.0;
+END_IF;
+
+last := tx;
+
+(* From OSCAT Library, www.oscat.de *)
+(* T_PLC_US, required *)]]></xhtml:p>
+          </ST>
+        </body>
+        <documentation>
+          <xhtml:p><![CDATA[FT_deriv calculates the derivate over the signal "in" with Faktor "K"]]></xhtml:p>
+        </documentation>
+      </pou>
+      <pou name="T_PLC_US" pouType="function">
+        <interface>
+          <returnType>
+            <UDINT/>
+          </returnType>
+          <localVars>
+            <variable name="tx">
+              <type>
+                <UDINT/>
+              </type>
+            </variable>
+          </localVars>
+          <inputVars>
+            <variable name="debug">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+          </inputVars>
+          <localVars>
+            <variable name="N">
+              <type>
+                <INT/>
+              </type>
+              <initialValue>
+                <simpleValue value="0"/>
+              </initialValue>
+            </variable>
+            <variable name="offset">
+              <type>
+                <UDINT/>
+              </type>
+              <initialValue>
+                <simpleValue value="0"/>
+              </initialValue>
+            </variable>
+            <variable name="temp">
+              <type>
+                <DWORD/>
+              </type>
+              <initialValue>
+                <simpleValue value="1"/>
+              </initialValue>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[{extern unsigned long __tick;
+extern unsigned long long common_ticktime__;
+unsigned long long ticktime_ms = (common_ticktime__)/1000000;
+UDINT plc_time = (UDINT)(ticktime_ms * (unsigned long long)__tick);
+TX = plc_time}
+
+T_PLC_US := tx*1000;
+IF debug THEN
+	T_PLC_US := (DWORD_TO_UDINT(SHL(UDINT_TO_DWORD(T_PLC_US),N) OR SHL(temp,N))-1) + OFFSET;
+END_IF;
+
+(* Original Code:
+tx := TIME();
+T_PLC_US := TIME_TO_DWORD(Tx)*1000;
+IF debug THEN
+	T_PLC_US := (SHL(T_PLC_US,N) OR SHL(DWORD#1,N)-1) + OFFSET;
+END_IF;
+*)
+
+(* From OSCAT library, www.oscat.de
+
+this is a temporary T_PLC_US FB until OpenPLC gets it´s own time() functionality *)
+
+(* PLC_TIME and Global variables PLC_SCAN_CYCL and PLC_CYCL_TIME required *)]]></xhtml:p>
+          </ST>
+        </body>
+        <documentation>
+          <xhtml:p><![CDATA[Output current execution time in microseconds]]></xhtml:p>
+        </documentation>
+      </pou>
+      <pou name="FT_PIDWL" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="IN">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="KP">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0"/>
+              </initialValue>
+            </variable>
+            <variable name="TN">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0"/>
+              </initialValue>
+            </variable>
+            <variable name="TV">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0"/>
+              </initialValue>
+            </variable>
+            <variable name="LIM_L">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="-1.0E38"/>
+              </initialValue>
+            </variable>
+            <variable name="LIM_H">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0E38"/>
+              </initialValue>
+            </variable>
+            <variable name="RST">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="Y">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="LIM">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="piwl">
+              <type>
+                <derived name="FT_PIWL"/>
+              </type>
+            </variable>
+            <variable name="diff">
+              <type>
+                <derived name="FT_DERIV"/>
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[IF rst THEN
+	piwl(rst := TRUE);
+	piwl.RST := FALSE;
+ELSE
+	(* run PIWL controller first *)
+	(* we need to check if TN = 0 and do alternative calls *)
+	IF TN = 0.0 THEN
+		piwl(in := IN * KP, KP := 1.0, KI := 0.0, LIM_L := LIM_L, LIM_H := LIM_H);
+	ELSE
+		piwl(in := IN * KP, KP := 1.0, KI := 1.0 / TN, LIM_L := LIM_L, LIM_H := LIM_H);
+	END_IF;
+
+	(* run differentiator and add_to_output *)
+	diff(IN := IN, K := KP * TV);
+	Y := piwl.Y + diff.out;
+
+	(* limit the output *)
+	IF Y < LIM_L THEN
+		LIM := TRUE;
+		Y := LIM_L;
+	ELSIF Y > LIM_H THEN
+		LIM := TRUE;
+		Y := LIM_H;
+	ELSE
+		LIM := FALSE;
+	END_IF;
+END_IF;
+
+
+
+(* From OSCAT Library, www.oscat.de *)
+(* T_PLC_US, FT_DERIV required *)]]></xhtml:p>
+          </ST>
+        </body>
+        <documentation>
+          <xhtml:p><![CDATA[FT_PIWL is a PI controller]]></xhtml:p>
+        </documentation>
+      </pou>
+      <pou name="CTRL_PID" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="ACT">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="SET">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="SUP">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="OFS">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="M_I">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="MAN">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+            <variable name="RST">
+              <type>
+                <BOOL/>
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE"/>
+              </initialValue>
+            </variable>
+            <variable name="KP">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0"/>
+              </initialValue>
+            </variable>
+            <variable name="TN">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0"/>
+              </initialValue>
+            </variable>
+            <variable name="TV">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.0"/>
+              </initialValue>
+            </variable>
+            <variable name="LL">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="-1000.0"/>
+              </initialValue>
+            </variable>
+            <variable name="LH">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1000.0"/>
+              </initialValue>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="Y">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="DIFF">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="LIM">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="_pid">
+              <type>
+                <derived name="FT_PIDWL"/>
+              </type>
+            </variable>
+            <variable name="co">
+              <type>
+                <derived name="CTRL_OUT"/>
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[DIFF := CTRL_IN(SET, ACT, SUP);
+_pid(in := DIFF, kp := KP, tn := TN, tv := TV, lim_l := LL, lim_h := LH, rst := RST);
+co(ci := _pid.Y, OFFSET := OFS, man_in := M_I, lim_l := LL, lim_h := LH, manual := MAN);
+Y := co.Y;
+LIM := co.LIM;
+
+
+(* From OSCAT Library, www.oscat.de *)
+(* CTRL_IN, FT_PIDWL, CTRL_out reauired *)]]></xhtml:p>
+          </ST>
+        </body>
+        <documentation>
+          <xhtml:p><![CDATA[FT_PID is a PID controller with manual functionality]]></xhtml:p>
+        </documentation>
+      </pou>
+      <pou name="CTRL_OUT" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="CI">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="OFFSET">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="MAN_IN">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="LIM_L">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="LIM_H">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="MANUAL">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="Y">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="LIM">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+          </outputVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[Y := SEL(manual, CI, MAN_IN) + OFFSET;
+
+(* Limit the output *)
+IF Y >= LIM_H THEN
+	Y := LIM_H;
+	LIM := TRUE;
+ELSIF Y <= lim_L THEN
+	Y := LIM_L;
+	LIM := TRUE;
+ELSE
+	LIM := FALSE;
+END_IF;
+
+(* From OSCAT Library, www.oscat.de *)]]></xhtml:p>
+          </ST>
+        </body>
+      </pou>
+      <pou name="CTRL_IN" pouType="function">
+        <interface>
+          <returnType>
+            <REAL/>
+          </returnType>
+          <inputVars>
+            <variable name="SET_POINT">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="ACTUAL">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="NOISE">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+          </inputVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[CTRL_IN := DEAD_ZONE(SET_POINT - ACTUAL, NOISE);
+
+(* From OSCAT Library, www.oscat.de *)
+(* DEAD_ZONE required *)]]></xhtml:p>
+          </ST>
+        </body>
+      </pou>
+      <pou name="program0" pouType="program">
+        <interface>
+          <localVars>
+            <variable name="myACT">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="0.1"/>
+              </initialValue>
+            </variable>
+            <variable name="mySET">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="180.0"/>
+              </initialValue>
+            </variable>
+            <variable name="myPIDController">
+              <type>
+                <derived name="PID_Controller"/>
+              </type>
+            </variable>
+            <variable name="myPID">
+              <type>
+                <derived name="AMMONIUM_NITRATE_TEMP_CONTROL"/>
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[(*
+myPIDController(ACT := myACT, SET := mySET);
+*)
+
+myPID(temp_actual := myAct,
+      manual_mode := FALSE,
+      manual_input := 0.0);
+
+IF myACT < mySET THEN
+  myACT := myACT + 1.0;
+ELSIF myACT > mySET THEN
+  myACT := myACT - 1.0;
+END_IF;
+
+
+]]></xhtml:p>
+          </ST>
+        </body>
+      </pou>
+      <pou name="PID_Controller" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="ACT">
+              <type>
+                <REAL/>
+              </type>
+              <documentation>
+                <xhtml:p><![CDATA[ACT]]></xhtml:p>
+              </documentation>
+            </variable>
+            <variable name="SET">
+              <type>
+                <REAL/>
+              </type>
+              <documentation>
+                <xhtml:p><![CDATA[SET]]></xhtml:p>
+              </documentation>
+            </variable>
+          </inputVars>
+          <localVars>
+            <variable name="ctrl_pid1">
+              <type>
+                <derived name="CTRL_PID"/>
+              </type>
+              <documentation>
+                <xhtml:p><![CDATA[ctrl_pid]]></xhtml:p>
+              </documentation>
+            </variable>
+            <variable name="ctrl_out1">
+              <type>
+                <derived name="CTRL_OUT"/>
+              </type>
+              <documentation>
+                <xhtml:p><![CDATA[ctrl_out]]></xhtml:p>
+              </documentation>
+            </variable>
+          </localVars>
+          <outputVars>
+            <variable name="Y">
+              <type>
+                <REAL/>
+              </type>
+              <documentation>
+                <xhtml:p><![CDATA[Y]]></xhtml:p>
+              </documentation>
+            </variable>
+            <variable name="DIFF">
+              <type>
+                <REAL/>
+              </type>
+              <documentation>
+                <xhtml:p><![CDATA[DIFF]]></xhtml:p>
+              </documentation>
+            </variable>
+            <variable name="LIM">
+              <type>
+                <BOOL/>
+              </type>
+              <documentation>
+                <xhtml:p><![CDATA[LIM]]></xhtml:p>
+              </documentation>
+            </variable>
+          </outputVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[ctrl_pid1(ACT := ACT, 
+          SET := SET, 
+          SUP := 0.0, 
+          OFS := 0.0, 
+          M_I := 0.0, 
+          MAN := FALSE, 
+          RST := FALSE, 
+          KP := 1.0, 
+          TN := 1.0, 
+          TV := 1.0, 
+          LL := -100.0, 
+          LH := 100.0);
+Y := ctrl_pid1.Y;
+
+(*
+
+ctrl_out1(CI := ctrl_pid1.Y, 
+          MAN_IN := 0.0, 
+          MANUAL := FALSE, 
+          LIM_L := -100.0, 
+          LIM_H := 100.0);
+
+Y := ctrl_out1.Y;
+DIFF := ctrl_pid1.DIFF;
+LIM := ctrl_pid1.LIM;
+*)
+
+]]></xhtml:p>
+          </ST>
+        </body>
+        <documentation>
+          <xhtml:p><![CDATA[PID_Controller]]></xhtml:p>
+        </documentation>
+      </pou>
+      <pou name="AMMONIUM_NITRATE_TEMP_CONTROL" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="temp_actual">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+            <variable name="manual_mode">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+            <variable name="manual_input">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="control_output">
+              <type>
+                <REAL/>
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="set_point">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="180.0"/>
+              </initialValue>
+            </variable>
+            <variable name="kp">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="50.0"/>
+              </initialValue>
+            </variable>
+            <variable name="ki">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="1.2"/>
+              </initialValue>
+            </variable>
+            <variable name="kd">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="10.0"/>
+              </initialValue>
+            </variable>
+            <variable name="lower_limit">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="-100.0"/>
+              </initialValue>
+            </variable>
+            <variable name="upper_limit">
+              <type>
+                <REAL/>
+              </type>
+              <initialValue>
+                <simpleValue value="100.0"/>
+              </initialValue>
+            </variable>
+            <variable name="pidcontroller">
+              <type>
+                <derived name="CTRL_PID"/>
+              </type>
+            </variable>
+            <variable name="timer">
+              <type>
+                <derived name="TON"/>
+              </type>
+            </variable>
+            <variable name="timer_done">
+              <type>
+                <BOOL/>
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[timer(IN:=NOT manual_mode, PT:=T#10S);
+timer_done := timer.Q;
+
+IF timer_done THEN
+    pidcontroller(ACT:=temp_actual, 
+                   SET:=set_point, 
+                   KP:=kp, 
+                   TN:=kp/ki, 
+                   TV:=kd/kp, 
+                   LL:=lower_limit, 
+                   LH:=upper_limit, 
+                   MAN:=manual_mode, 
+                   M_I:=manual_input, 
+                   RST:=FALSE);
+    control_output := pidcontroller.Y;
+ELSE
+    control_output := 0.0;
+END_IF;]]></xhtml:p>
+          </ST>
+        </body>
+      </pou>
+    </pous>
+  </types>
+  <instances>
+    <configurations>
+      <configuration name="Config0">
+        <resource name="Res0">
+          <task name="task0" priority="0" interval="T#100ms">
+            <pouInstance name="instance0" typeName="program0"/>
+          </task>
+        </resource>
+      </configuration>
+    </configurations>
+  </instances>
+</project>
